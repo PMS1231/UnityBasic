@@ -5,18 +5,29 @@ using UnityEngine;
 
 public class GatchaSystem : MonoBehaviour
 {
+    // 가챠 횟수 및 확률 텍스트
     public TextMeshProUGUI count_Text;
     public TextMeshProUGUI rate_Text;
+
+    // 가챠 결과 텍스트 
+    public TextMeshProUGUI[] resultTextObjects;
+
+    // 가챠 결과창 배경 
+    public UnityEngine.UI.Image[] resultBGObjects;
+
+    // 가챠 결과창 색깔
+    Color star3Color = new Color32(79, 133, 255, 255);  // 파란색
+    Color star4Color = new Color32(255, 218, 82, 255);  // 노란색
+    Color star5Color = new Color32(255, 135, 255, 255); // 분홍색
 
     int no4StarCount = 0; // 4성이 연속으로 안 나온 횟수
     int no5StarCount = 0; // 5성이 연속으로 안 나온 횟수
     int gatchaCount = 0; // 누적 가챠 횟수
     bool pickUpCount = false; // 픽업캐 먹었는지 안먹었는지 여부 확인 
 
-
-    double rate3Star; // 3성 확률
-    double rate4Star; // 4성 확률
     double rate5Star; // 5성 확률
+    double rate4Star; // 4성 확률
+    double rate3Star; // 3성 확률
     double baserate5; // 기본 5성 확률
     double baserate4; // 기본 4성 확률
     double baserate3; // 기본 3성 확률
@@ -80,125 +91,163 @@ public class GatchaSystem : MonoBehaviour
 
     void UpdateGachaRates()
     {
-        // 기본 확률 고정
-        baserate5 = 0.006; // 0.6%
-        baserate4 = 0.051; // 5.1%
-        baserate3 = 0.943; // 94.3%
+        baserate5 = 0.006;
+        baserate4 = 0.051;
+        baserate3 = 0.943;
 
-        // 5성 확률 변동
-        if (no5StarCount >= 89) // 가챠 90회시 100%
+        if (no5StarCount >= 89)
             rate5Star = 1.0;
         else if (no5StarCount >= 74)
-            rate5Star = baserate5 + 0.06 * (no5StarCount - 73); // 74회부터 확률 +6%
+            rate5Star = baserate5 + 0.06 * (no5StarCount - 73);
         else
             rate5Star = baserate5;
 
-        // 4성 및 3성 확률 변동
         if (no4StarCount == 9)
         {
-            rate4Star = 1.0 - rate5Star; 
+            rate4Star = 1.0 - rate5Star;
             rate3Star = 0.0;
         }
         else if (no4StarCount == 8)
         {
-            // 하드코딩 (개선 필요)
-            rate4Star = 0.561 * (1.0 - rate5Star);
-            rate3Star = 0.439 * (1.0 - rate5Star);
+            double boostedRate4 = baserate4 + 0.51;
+            double boostedRate3 = 1.0 - baserate5 - boostedRate4;
+
+            rate4Star = (boostedRate4 / (boostedRate4 + boostedRate3)) * (1.0 - rate5Star);
+            rate3Star = (boostedRate3 / (boostedRate4 + boostedRate3)) * (1.0 - rate5Star);
         }
         else
         {
-            // 평소 기본 비율
-            rate4Star = (baserate4 / (baserate3 + baserate4)) * (1.0 - rate5Star);
-            rate3Star = (baserate3 / (baserate3 + baserate4)) * (1.0 - rate5Star);
+            rate4Star = (baserate4 / (baserate4 + baserate3)) * (1.0 - rate5Star);
+            rate3Star = (baserate3 / (baserate4 + baserate3)) * (1.0 - rate5Star);
         }
     }
 
-    public void GachaRoll()
+    public (string resultText, int starGrade) GachaRoll()
     {
         rollRandomValue = Random.value;
+        string resultMsg = "";
+        int grade = 3;
 
         if (rollRandomValue <= rate5Star)
         {
+            grade = 5;
             if (pickUpCount)
             {
-                listRandomValue = Random.Range(0, featured5Characters.Count);
-                Debug.Log("5성 픽업 캐릭터 출현! " + featured5Characters[listRandomValue] + " 등장!");
+                if (featured5Characters.Count > 0)
+                {
+                    listRandomValue = Random.Range(0, featured5Characters.Count);
+                    resultMsg = "★5 픽업!\n" + featured5Characters[listRandomValue];
+                }
                 pickUpCount = false;
             }
             else
             {
                 pickUpSuccess = Random.value < 0.5f;
-
-                if (pickUpSuccess)
+                if (pickUpSuccess && featured5Characters.Count > 0)
                 {
                     listRandomValue = Random.Range(0, featured5Characters.Count);
-                    Debug.Log("5성 픽업 캐릭터 출현! " + featured5Characters[listRandomValue] + " 등장!");
+                    resultMsg = "★5 픽업!\n" + featured5Characters[listRandomValue];
                 }
-                else
+                else if (star5Characters.Count > 0)
                 {
                     listRandomValue = Random.Range(0, star5Characters.Count);
-                    Debug.Log("5성 캐릭터 출현! " + star5Characters[listRandomValue] + " 등장!");
+                    resultMsg = "★5 일반!\n" + star5Characters[listRandomValue];
                     pickUpCount = true;
                 }
             }
-
+            no4StarCount = 0;
             no5StarCount = 0;
         }
         else if (rollRandomValue <= rate5Star + rate4Star)
         {
+            grade = 4;
             characterSuccess = Random.value < 0.5f;
 
             if (characterSuccess)
             {
                 pickUpSuccess = Random.value < 0.5f;
 
-                if (pickUpSuccess)
+                if (pickUpSuccess && featured4Characters.Count > 0)
                 {
                     listRandomValue = Random.Range(0, featured4Characters.Count);
-                    Debug.Log("4성 픽업 캐릭터 출현! " + featured4Characters[listRandomValue] + " 등장!");
+                    resultMsg = "★4 픽업!\n" + featured4Characters[listRandomValue];
                 }
-                else
+                else if (star4Characters.Count > 0)
                 {
                     listRandomValue = Random.Range(0, star4Characters.Count);
-                    Debug.Log("4성 캐릭터 출현! " + star4Characters[listRandomValue] + " 등장!");
+                    resultMsg = "★4 일반!\n" + star4Characters[listRandomValue];
                 }
             }
-            else
+            else if (star4LightCones.Count > 0)
             {
                 listRandomValue = Random.Range(0, star4LightCones.Count);
-                Debug.Log("4성 광추 출현! " + star4LightCones[listRandomValue] + " 등장!");
+                resultMsg = "★4 광추!\n" + star4LightCones[listRandomValue];
             }
+
             no4StarCount = 0;
+            no5StarCount++;
         }
         else
         {
-            listRandomValue = Random.Range(0, star3LightCones.Count);
-            Debug.Log("3성 광추 출현! " + star3LightCones[listRandomValue] + " 등장!");
+            if (star3LightCones.Count > 0)
+            {
+                listRandomValue = Random.Range(0, star3LightCones.Count);
+                resultMsg = "★3 광추!\n" + star3LightCones[listRandomValue];
+            }
+
             no4StarCount++;
             no5StarCount++;
         }
 
         gatchaCount++;
+        Debug.Log($"{gatchaCount}회 째, {resultMsg}");
+        UpdateGachaRates(); 
+        UpdateText();   
 
-        UpdateText();
-        UpdateGachaRates();
+        return (resultMsg, grade);
+    }
+    public void GachaRoll_Single()
+    {
+        var result = GachaRoll();
+        resultTextObjects[0].text = result.resultText;
+        SetColor(resultBGObjects[0], result.starGrade);
 
+        // 나머지 9칸 초기화
+        for (int i = 1; i < 10; i++)
+        {
+            resultTextObjects[i].text = "";
+            resultBGObjects[i].color = Color.clear;
+        }
     }
 
     public void GachaRoll_10()
     {
         for (int i = 0; i < 10; i++)
         {
-            GachaRoll();
+            var result = GachaRoll();
+            resultTextObjects[i].text = result.resultText;
+            SetColor(resultBGObjects[i], result.starGrade);
         }
+    }
+
+    void SetColor(UnityEngine.UI.Image img, int grade)
+    {
+        img.color = grade switch
+        {
+            5 => star5Color,
+            4 => star4Color,
+            3 => star3Color,
+            _ => Color.white
+        };
     }
 
     public void UpdateText()
     {
-        count_Text.text = $"가챠 {gatchaCount}회";
         rate_Text.text = $"현재 확률\r\n" +
                          $"5성: {(rate5Star * 100):F1}%\r\n" +
                          $"4성: {(rate4Star * 100):F1}%\r\n" +
                          $"3성: {(rate3Star * 100):F1}%\r\n";
+
+        count_Text.text = $"가챠 {gatchaCount}회";
     }
 }
